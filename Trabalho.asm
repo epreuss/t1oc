@@ -21,7 +21,7 @@ syscall
 ####### Métodos #######
 
 .data
-	file:   .asciiz "helper.txt"
+	file:   .asciiz "projeto_01_codigo.txt"
 	reader: .asciiz ""
 
 .text
@@ -37,7 +37,9 @@ desenhaArquivo:
 	# Lê
 	li   $v0, 14       # Ler arquivo
 	move $a0, $s4      # Referência do arquivo
-	la   $a1, reader   # Buffer de leitura
+	sub $sp, $sp, 4
+	addiu $a1, $sp, 0
+	#la   $a1, reader   # Buffer de leitura
 	li   $a2, 500      # Quantidade de caracteres
 	syscall            # Retorna em $v0 quantos foram lidos
 	# Fecha 
@@ -47,7 +49,7 @@ desenhaArquivo:
 	li   $v0, 4
 	# Desenha
 	li   $v0, 4 	   # Desenhar string
-	la   $a0, reader   # Passa o buffer
+	lw   $a0, 0($sp)   # Passa o buffer
 	syscall            # Desenha
 	# Acaba método
 	jr   $ra           # Volta para main
