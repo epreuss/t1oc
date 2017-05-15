@@ -57,6 +57,7 @@ decrementaContador:
             li    $v0, 11
             syscall
             j     verificaFinalArquivo
+            0000 0000 0000 0000
 imprimeEspaco:
             # imprimimos um espaço
             li    $a0,' '
