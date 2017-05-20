@@ -1,30 +1,5 @@
-####### Main #######
 
-# $t0 - auxiliar principal
-# $s0 - hexacimal atual sendo decodificado
-# $s1 - salva $ra
-# $s7 - endereço de todos hexadecimais do arquivo binário
-
-.text
-
-main:
-
-jal leBinario
-
-decodificaTodosHex:
-	jal decodificaHex
-	add $s7, $s7, 4 # avanca hex
-
-	lw $t0, 0($s7)
-	bne $t0, 0, decodificaTodosHex
-
-#jal desenhaArquivo
-
-end: # Termina programa
-li $v0, 17
-syscall
-
-####### Métodos #######
+####### Macros #######
 
 .macro printStr (%string)
 .data
@@ -36,6 +11,7 @@ syscall
 .end_macro
 
 .macro printA0
+	saveChar($a0)
 	li $v0, 4
 	syscall
 .end_macro
@@ -46,129 +22,384 @@ syscall
 	syscall
 .end_macro
 
+.macro saveChar (%char)
+	sw %char, 0($s4)
+	li $t0, 40
+	sub $sp, $sp, $t0
+	add $s4, $s4, $t0
+	add $s5, $s5, $t0
+.end_macro
+
+.macro saveChar2 (%char)
+.data
+	myStr: .asciiz %string
+.text
+	sub $sp, $sp, 4
+	
+.end_macro
+
+####### Registradores principais #######
+
+# $s0 - hexacimal atual sendo decodificado
+# $s4 - vetor de bytes para gerar arquivo de saida
+# $s5 - indice do vetor $s4
+# $s7 - endereço de todos hexadecimais do arquivo binário
+
+####### Main #######
+
+.data 
+
+wat: .asciiz "oi"
+
+.text
+
+main:
+
+# Inicializa registrador $s4
+sub $sp, $sp, 4
+la $s4, 0($sp)
+
+#la $a0, wat
+#saveChar($a0)
+
+#jal fazArquivoOutput
+#j end
+
+#jal desenhaArquivo
+#j end
+
+# Inicializa registrador $s7 com hexadecimais
+jal leBinario
+
+# Decodifica hexadecimais
+decodificaTodosHex:
+	jal decodificaHex
+	printStr("\n")
+	add $s7, $s7, 4 # avanca hex
+
+	lw $t0, 0($s7)
+	bne $t0, 0, decodificaTodosHex
+
+printStr("\n")
+jal desenhaArquivo
+
+# Termina programa
+end:
+	li $v0, 17
+	syscall
+
+####### Cria arquivo de saida ########
+
+desenhaArquivo:
+	li $v0, 4
+	sub $s4, $s4, $s5
+	lw $t0, 0($s4)
+desenhaLoop:
+	add $a0, $t0, $zero
+	syscall
+	printStr("\n")
+	add $s4, $s4, 40
+	lw $t0, 0($s4)
+	bne $t0, 0, desenhaLoop
+	jr $ra
+
+.data
+
+arquivoSaida: "output.txt"
+
+.text
+
+fazArquivoOutput:            
+        # abertura do arquivo de saida
+        la    $a0, arquivoSaida # endereco arquivo
+        li    $a1, 1	# flags: 1  - escrita
+        li    $a2, 0 	# modo - atualmente é ignorado pelo serviço
+        li    $v0, 13	# abertura
+        syscall  
+        beq   $v0, -1, end
+        # escreve no arquivo
+        move  $a0, $v0      # save the file descriptor 
+	la    $a1, 0($s4)   # address of buffer from which to write
+	li    $a2, 4        # hardcoded buffer length
+        li    $v0, 15       # system call for write to file
+	syscall             # write to file                        
+	# fecha arquivo
+	li   $v0, 16  
+	syscall       
+	jr $ra
+
 ####### Decodificar hexadecimal #######
 
 .data
 	n: .asciiz "???"
-	sll0: .asciiz "sll"
 	jr8: .asciiz "jr"
 	syscall12: .asciiz "syscall"
 	add32: .asciiz "add"
 	addu33: .asciiz "addu"
 	slt42: .asciiz "slt"
-	tableR: .word sll0, n,n,n,n,n,n,n, jr8, n,n,n, syscall12, n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n, add32, addu33, n,n,n,n,n,n,n,n, slt42, n
-	Rtypes: .word 2,    0,0,0,0,0,0,0, 3,   0,0,0,         4, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,     1,      1, 0,0,0,0,0,0,0,0,     1, 0
+	tableR: .word n,n,n,n,n,n,n,n, jr8, n,n,n, syscall12, n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n, add32, addu33, n,n,n,n,n,n,n,n, slt42, n
+	Rtypes: .word 0,0,0,0,0,0,0,0,   2, 0,0,0,         3, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,     1,      1, 0,0,0,0,0,0,0,0,     1, 0
 	
-	beq0: .asciiz "beq" 
-	bne0: .asciiz "bne" 
-	blez0: .asciiz "blez" 
-	bgtz0: .asciiz "bgtz" 
-	addi0: .asciiz "addi" 
-	addiu0: .asciiz "addiu" 
-	slti0: .asciiz "slti" 
-	sltiu0: .asciiz "sltiu"  
-	andi0: .asciiz "andi" 
-	ori0: .asciiz "ori" 
-	xori0: .asciiz "xori" 
-	lui0: .asciiz "lui"    
+	j2: .asciiz "j"
+	jal3: .asciiz "jal"
+	beq4: .asciiz "beq" 
+	bne5: .asciiz "bne" 
+	addi8: .asciiz "addi" 
+	addiu9: .asciiz "addiu" 
+	ori13: .asciiz "ori" 
+	lui15: .asciiz "lui"    
+	lw35: .asciiz "lw" 
+	sw43: .asciiz "sw"  
 	
-	tableI: .word beq0, bne0, blez0, bgtz0
+	tableI: .word n,n, j2, jal3, beq4, bne5, n,n, addi8, addiu9, n,n,n, ori13, n, lui15, n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n,n, lw35, n,n,n,n,n,n,n, sw43
+	Itypes: .word 0,0,  1,    1,    1,    2, 0,0,     3,      3, 0,0,0,     3, 0,     4, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,    5, 0,0,0,0,0,0,0,    5 
 	
 .text
 
-# $s0 deve possuir o hex
-	la $t0, tableR
-	lw $t1, 0($t0)
-	li $v0, 4
-	add $a0, $t1, $zero
-	syscall
 decodificaHex:
+	# Guarda endereco de retorno - $s1
 	la $s1, 0($ra)
-	printStr("\n")
-		
-				
-	# 0000 0000 0000 0101 0011 0000 0100 0000 = sll $a2, $a1, 1 = 0x00053040 = 3400032
-	# 1000 1100 1010 0110 1111 1111 1111 1111 = lw $a1, $a2 = 0x8ca6ffff = 2359754751
-	li $s0, 5897
-	lw $s0, 0($s7) #2359754751
-	add $a0, $zero $s0
-	#li $v0, 34
-	#syscall
-	#printStr("\n")
+	# Carrega o hex do vetor em $s7 para $s0		
+	lw $s0, 0($s7)
+	li $v0, 34
+	add $a0, $s0, $zero
+	syscall
 	srl $t0, $s0, 26 # Opcode em $t0
-	beq $t0, $zero, tipoR
+	beq $t0, $zero, tipoR # Se for 0, o tipo é R. Caso contrário, I.
 tipoI:
-	j hexEnd
-	printStr("tipo I - ")
-	#la $t2, tableR	
-	#lw $a0, 0($t2)
-	#printA0()
-	#printStr(" ")
-	printStr("OP[")
-	printInt($t0)
-	printStr("]: ")
-	sll $t0, $s0, 6
-	srl $t0, $t0, 27 # rs	
-	printStr("$")
-	printInt($t0)
-	printStr(", ")
-	sll $t0, $s0, 11
-	srl $t0, $t0, 27 # rt
-	printStr("$")
-	printInt($t0)
-	printStr(", ")
-	sll $t0, $s0, 16
-	srl $t0, $t0, 16 # Adress
-	printStr("A[")
-	printInt($t0)
-	printStr("].")
-	j hexEnd
-tipoR:
-	printStr("tipo R - ")
-	sll $t0, $s0, 26
-	srl $t0, $t0, 26 # Funct
-	printStr("F[")
-	printInt($t0)
-	printStr("]: ")
-
-	# Acessa mnemonico da tabela
-	la $t2, tableR
-	mul $t0, $t0, 4
-	add $t2, $t2, $t0
-	lw $a0, 0($t2)
+	printStr("; tipo I - ")
+	add $t7, $t0, $zero # opcode em $t7
+	
+	# Printa mnemonico da tabela
+	la $t1, tableI # Carrega endereco
+	mul $t7, $t7, 4 # Posiciona endereco de acordo com opcode
+	add $t1, $t1, $t7 # Atualiza endereco
+	lw $a0, 0($t1)
 	printA0()
 	printStr(" ")
-	# rs
-	sll $t0, $s0, 6
-	srl $t0, $t0, 27
+	
+	# Verifica o tipo do R
+	la $t1, Itypes  # Carrega endereco
+	add $t1 $t1, $t7 # Atualiza endereco (já posicionado)
+	lw $t0, 0($t1) # Carrega valor 
+	beq $t0, 1, Itype1
+	beq $t0, 2, Itype2
+	beq $t0, 3, Itype3
+	beq $t0, 4, Itype4
+	beq $t0, 5, Itype5
+	
+	# Caso não for um tipo implementado
+	printStr("???")
+	j hexEnd
+Itype1:
+	# op, adress
+	# bits: 6 26
+	# name label
+	
+	# adress - $t9 
+	sll $t9, $s0, 6
+	srl $t9, $t9, 6
+	
+	# print adress
+	add $a3, $t9, $zero
+	jal printLabel
+	j hexEnd
+Itype2:
+	# op, rs, rt, deslocamento
+	# bits: 6 5 5 16
+	# name rs, rt, label
+	
+	# rs - $t7
+	sll $t7, $s0, 6
+	srl $t7, $t7, 27
+	# rt - $t8
+	sll $t8, $s0, 11
+	srl $t8, $t8, 27
+	# deslocamento - $t9
+	sll $t9, $s0, 16
+	srl $t9, $t9, 16
+	
+	# print rs
 	printStr("$")
-	add $a3, $t0, $zero
+	add $a3, $t7, $zero
 	jal printRegister
-	printStr(", ")
-	# rt
-	sll $t0, $s0, 11
-	srl $t0, $t0, 27
+	printStr(", ")	
+	# print rt
 	printStr("$")
-	add $a3, $t0, $zero
+	add $a3, $t8, $zero
 	jal printRegister
-	printStr(", ")
-	# rd
-	sll $t0, $s0, 16
-	srl $t0, $t0, 27
+	# print deslocamento
+	printStr(", ")	
+	add $a3, $t9, $zero
+	jal printLabel
+	j hexEnd
+Itype3:
+	# op, rs, rt, imediato
+	# bits: 6 5 5 16
+	# name rt, rs, imediato
+	
+	# rt - $t7
+	sll $t7, $s0, 11
+	srl $t7, $t7, 27
+	# rs - $t8
+	sll $t8, $s0, 6
+	srl $t8, $t8, 27
+	# imediato - $t9
+	sll $t9, $s0, 16
+	srl $t9, $t9, 16
+	
+	# print rt
 	printStr("$")
-	add $a3, $t0, $zero
+	add $a3, $t7, $zero
 	jal printRegister
-	printStr(",")
-	#sll $t0, $s0, 21
-	#srl $t0, $t0, 27 # shamt
-	#printStr(" S[")
-	#printInt($t0)
-	#printStr("].")
+	printStr(", ")	
+	# print rs
+	printStr("$")
+	add $a3, $t8, $zero
+	jal printRegister
+	# print imediato
+	printStr(", ")	
+	printInt($t9)
+	j hexEnd
+Itype4:
+	# op, 0, rt, imediato
+	# bits: 6 5 5 16
+	# name rt, imediato
+	
+	# rt - $t8
+	sll $t8, $s0, 11
+	srl $t8, $t8, 27
+	# imediato - $t9
+	sll $t9, $s0, 16
+	srl $t9, $t9, 16
+	
+	# print rt
+	printStr("$")
+	add $a3, $t8, $zero
+	jal printRegister
+	# print imediato
+	printStr(", ")	
+	printInt($t9)
+	j hexEnd
+Itype5:
+	# op, rs, rt, deslocamento
+	# bits: 6 5 5 16
+	# name rt, adress
+	
+	# rt - $t7
+	sll $t7, $s0, 11
+	srl $t7, $t7, 27
+	# rs - $t8
+	sll $t8, $s0, 6
+	srl $t8, $t8, 27
+	# deslocamento - $t9
+	sll $t9, $s0, 16
+	srl $t9, $t9, 16
+	
+	# print rt
+	printStr("$")
+	add $a3, $t7, $zero
+	jal printRegister
+	printStr(", ")	
+	# print deslocamento
+	printInt($t9)
+	printStr("(")
+	# print rs
+	printStr("$")
+	add $a3, $t8, $zero
+	jal printRegister
+	printStr(")")
+	j hexEnd	
+
+tipoR:
+	printStr("tipo R - ")
+	
+	# Funct - $t7
+	sll $t7, $s0, 26
+	srl $t7, $t7, 26 
+	#printStr("F[")
+	#printInt($t7)
+	#printStr("]")
+	
+	# Printa mnemonico da tabela
+	la $t1, tableR # Carrega endereco
+	mul $t7, $t7, 4 # Posiciona endereco de acordo com funct
+	add $t1, $t1, $t7
+	lw $a0, 0($t1)
+	printA0()
+	printStr(" ")
+	
+	# Verifica o tipo do R
+	la $t1, Rtypes  # Carrega endereco
+	add $t1 $t1, $t7 # Atualiza endereco (já posicionado)
+	lw $t0, 0($t1) # Carrega valor 
+	beq $t0, 1, Rtype1
+	beq $t0, 2, Rtype2
+	beq $t0, 3, Rtype3
+	
+	# Caso não for um tipo implementado
+	printStr("???")
+	j hexEnd
+Rtype1:
+	# op, rs, rt, rd, shamt, func
+	# bits: 6 5 5 5 6
+	# name rd, rs, rt
+	
+	# rd - $t7
+	sll $t7, $s0, 16
+	srl $t7, $t7, 27
+	# rs - $t8
+	sll $t8, $s0, 6
+	srl $t8, $t8, 27
+	# rt - $t8
+	sll $t9, $s0, 11
+	srl $t9, $t9, 27
+	
+	# print rd
+	printStr("$")
+	add $a3, $t7, $zero
+	jal printRegister
+	printStr(", ")	
+	# print rs
+	printStr("$")
+	add $a3, $t8, $zero
+	jal printRegister
+	printStr(", ")	
+	# print rt
+	printStr("$")
+	add $a3, $t9, $zero
+	jal printRegister
+	j hexEnd
+Rtype2:
+	# op, rs, imediate, func
+	# bits: 6 5 15 6
+	# name rs
+	
+	# rs - $t9
+	sll $t9, $s0, 6
+	srl $t9, $t9, 27
+	printStr("$")
+	add $a3, $t9, $zero
+	jal printRegister	
+	j hexEnd
+Rtype3:
+	# op, imediate, func
+	# bits: 6 20 6
+	# name
+	j hexEnd
 hexEnd:
 	jr $s1
 	
-	
-###### Recebe um inteiro de 0-31 em $a3 e printa a string certa ########
+###### Recebe um inteiro de 32 bits em $a3 e printa em hexadecimal #######
+
+printLabel:
+	li $v0, 34
+	add $a0, $a3, $zero
+	#add $a0, $a0, 4194304 # Este número é o endereco 0x00400000
+	syscall
+	jr $ra
+
+###### Recebe um inteiro de valor 0-31 em $a3 e printa a string certa ########
 
 .data
 	r0: .asciiz "zero"
@@ -223,7 +454,7 @@ printRegister:
 leBinario:		
             sub   $sp, $sp, 16  # alocamos na pilha espaÃ§o para as variÃ¡veis
             la    $s4, 0($sp)  # s4 = acesso fixado
-           	la    $s7, 12($sp)	
+            la    $s7, 12($sp)	
             # abertura do arquivo de leitura
             la    $a0, arquivoEntrada # $a0 <- endereÃ§o da string com o nome do arquivo
             li    $a1, 0 # flags: 0  - leitura
