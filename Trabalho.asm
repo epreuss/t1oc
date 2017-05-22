@@ -11,7 +11,7 @@
 .end_macro
 
 .macro printA0
-	saveChar($a0)
+	saveStr($a0)
 	li $v0, 4
 	syscall
 .end_macro
@@ -22,86 +22,101 @@
 	syscall
 .end_macro
 
-.macro saveChar (%char)
-	sw %char, 0($s4)
-	li $t0, 40
-	sub $sp, $sp, $t0
-	add $s4, $s4, $t0
-	add $s5, $s5, $t0
+.macro printHexS4 ()
+	li $v0, 34
+	add $a0, $s4, $zero
+	syscall
+	printStr("\n")	
 .end_macro
 
-.macro saveChar2 (%char)
+.macro saveStr (%str)
 .data
-	myStr: .asciiz %string
+	line: .asciiz "\n"
 .text
-	sub $sp, $sp, 4
-	
+	sw %str, 0($s4)
+	sub $sp, $sp, $s6
+	add $s4, $s4, $s6	
+	add $s5, $s5, 1
 .end_macro
+
 
 ####### Registradores principais #######
 
 # $s0 - hexacimal atual sendo decodificado
-# $s4 - vetor de bytes para gerar arquivo de saida
-# $s5 - indice do vetor $s4
+# $s4 - vetor de strings para gerar arquivo de saida
+# $s5 - quantidade de strings
+# $s6 - espaco para cada string do vetor $s4
 # $s7 - endereço de todos hexadecimais do arquivo binário
 
 ####### Main #######
 
 .data 
 
-wat: .asciiz "oi"
+test: .asciiz "eagegegagaeg"
+table: .word test
 
 .text
 
 main:
 
+# Inicializa registrador $s7 com hexadecimais
+#jal leBinario
+
+# Inicializa registrador $s6
+li $s6, 8
 # Inicializa registrador $s4
-sub $sp, $sp, 4
+sub $sp, $sp, $s6
 la $s4, 0($sp)
 
-#la $a0, wat
-#saveChar($a0)
+printHexS4()
 
-#jal fazArquivoOutput
-#j end
-
-#jal desenhaArquivo
-#j end
-
-# Inicializa registrador $s7 com hexadecimais
-jal leBinario
-
+	la $t1, table # Carrega endereco
+	#add $t1, $t1, 0 # Atualiza endereco
+	lw $t2, 0($t1)
+	la $t2, test
+	sw $t2, 0($s4)
+	sub $sp, $sp, $s6
+	add $s4, $s4, $s6	
+	add $s5, $s5, 1
+	
 # Decodifica hexadecimais
 decodificaTodosHex:
-	jal decodificaHex
+	#jal decodificaHex
 	printStr("\n")
 	add $s7, $s7, 4 # avanca hex
 
-	lw $t0, 0($s7)
-	bne $t0, 0, decodificaTodosHex
+	#lw $t0, 0($s7)
+	#bne $t0, 0, decodificaTodosHex
 
 printStr("\n")
-jal desenhaArquivo
+jal desenhaSaida
+
+jal fazArquivoOutput
 
 # Termina programa
 end:
 	li $v0, 17
 	syscall
 
-####### Cria arquivo de saida ########
+####### Desenha o arquivo de saída ########
 
-desenhaArquivo:
+desenhaSaida:
 	li $v0, 4
-	sub $s4, $s4, $s5
+	mul $t1, $s5, $s6
+	sub $s4, $s4, $t1
+	printHexS4()
 	lw $t0, 0($s4)
 desenhaLoop:
 	add $a0, $t0, $zero
 	syscall
 	printStr("\n")
-	add $s4, $s4, 40
+	add $s4, $s4, $s6
 	lw $t0, 0($s4)
 	bne $t0, 0, desenhaLoop
 	jr $ra
+
+
+####### Cria arquivo de saida ########
 
 .data
 
@@ -109,7 +124,10 @@ arquivoSaida: "output.txt"
 
 .text
 
-fazArquivoOutput:            
+fazArquivoOutput:     
+	mul $t1, $s5, $s6
+	sub $s4, $s4, $t1      
+	printHexS4()
         # abertura do arquivo de saida
         la    $a0, arquivoSaida # endereco arquivo
         li    $a1, 1	# flags: 1  - escrita
@@ -120,9 +138,13 @@ fazArquivoOutput:
         # escreve no arquivo
         move  $a0, $v0      # save the file descriptor 
 	la    $a1, 0($s4)   # address of buffer from which to write
-	li    $a2, 4        # hardcoded buffer length
+	mul   $t0, $s5, $s6 # $t0 = qtd * tamanho
+	add   $a2, $zero, 10
         li    $v0, 15       # system call for write to file
-	syscall             # write to file                        
+	syscall             # write to file    
+	li $v0, 1
+	add $a0, $t0, $zero
+	syscall         
 	# fecha arquivo
 	li   $v0, 16  
 	syscall       
@@ -160,7 +182,8 @@ decodificaHex:
 	# Guarda endereco de retorno - $s1
 	la $s1, 0($ra)
 	# Carrega o hex do vetor em $s7 para $s0		
-	lw $s0, 0($s7)
+	#lw $s0, 0($s7)
+	li $s0, 8519688
 	li $v0, 34
 	add $a0, $s0, $zero
 	syscall
