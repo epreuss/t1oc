@@ -30,9 +30,6 @@
 .end_macro
 
 .macro saveStr (%str)
-.data
-	line: .asciiz "\n"
-.text
 	sw %str, 0($s4)
 	sub $sp, $sp, $s6
 	add $s4, $s4, $s6	
@@ -60,33 +57,21 @@ table: .word test
 main:
 
 # Inicializa registrador $s7 com hexadecimais
-#jal leBinario
+jal leBinario
 
 # Inicializa registrador $s6
 li $s6, 8
 # Inicializa registrador $s4
 sub $sp, $sp, $s6
 la $s4, 0($sp)
-
-printHexS4()
-
-	la $t1, table # Carrega endereco
-	#add $t1, $t1, 0 # Atualiza endereco
-	lw $t2, 0($t1)
-	la $t2, test
-	sw $t2, 0($s4)
-	sub $sp, $sp, $s6
-	add $s4, $s4, $s6	
-	add $s5, $s5, 1
 	
 # Decodifica hexadecimais
 decodificaTodosHex:
-	#jal decodificaHex
+	jal decodificaHex
 	printStr("\n")
 	add $s7, $s7, 4 # avanca hex
-
-	#lw $t0, 0($s7)
-	#bne $t0, 0, decodificaTodosHex
+	lw $t0, 0($s7)
+	bne $t0, 0, decodificaTodosHex
 
 printStr("\n")
 jal desenhaSaida
@@ -104,7 +89,6 @@ desenhaSaida:
 	li $v0, 4
 	mul $t1, $s5, $s6
 	sub $s4, $s4, $t1
-	printHexS4()
 	lw $t0, 0($s4)
 desenhaLoop:
 	add $a0, $t0, $zero
@@ -127,7 +111,6 @@ arquivoSaida: "output.txt"
 fazArquivoOutput:     
 	mul $t1, $s5, $s6
 	sub $s4, $s4, $t1      
-	printHexS4()
         # abertura do arquivo de saida
         la    $a0, arquivoSaida # endereco arquivo
         li    $a1, 1	# flags: 1  - escrita
@@ -139,7 +122,7 @@ fazArquivoOutput:
         move  $a0, $v0      # save the file descriptor 
 	la    $a1, 0($s4)   # address of buffer from which to write
 	mul   $t0, $s5, $s6 # $t0 = qtd * tamanho
-	add   $a2, $zero, 10
+	add   $a2, $zero, $t0
         li    $v0, 15       # system call for write to file
 	syscall             # write to file    
 	li $v0, 1
@@ -182,15 +165,15 @@ decodificaHex:
 	# Guarda endereco de retorno - $s1
 	la $s1, 0($ra)
 	# Carrega o hex do vetor em $s7 para $s0		
-	#lw $s0, 0($s7)
-	li $s0, 8519688
-	li $v0, 34
-	add $a0, $s0, $zero
-	syscall
+	lw $s0, 0($s7)
+	#li $s0, 8519688
+	#li $v0, 34
+	#add $a0, $s0, $zero
+	#syscall
 	srl $t0, $s0, 26 # Opcode em $t0
 	beq $t0, $zero, tipoR # Se for 0, o tipo é R. Caso contrário, I.
 tipoI:
-	printStr("; tipo I - ")
+	printStr("tipo I - ")
 	add $t7, $t0, $zero # opcode em $t7
 	
 	# Printa mnemonico da tabela
